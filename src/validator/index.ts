@@ -10,43 +10,22 @@ export class Validator {
     validate(model: IDEF0Model): ValidationResult {
         const errors: ValidationError[] = [];
 
-        // Rule 1: Every activity must have at least one control
-        errors.push(...this.validateActivityControls(model));
-
-        // Rule 2: Every activity must have at least one output
+        // Rule 1: Every activity must have at least one output
         errors.push(...this.validateActivityOutputs(model));
 
-        // Rule 3: No duplicate activity codes
+        // Rule 2: No duplicate activity codes
         errors.push(...this.validateUniqueActivityCodes(model));
 
-        // Rule 4: ICOM codes that are referenced must exist
+        // Rule 3: ICOM codes that are referenced must exist
         errors.push(...this.validateICOMReferences(model));
 
-        // Rule 5: Warn about unused output codes
+        // Rule 4: Warn about unused output codes
         errors.push(...this.validateUnusedOutputCodes(model));
 
         return {
             valid: errors.filter(e => e.severity === 'error').length === 0,
             errors
         };
-    }
-
-    /**
-     * Validate that each activity has at least one control
-     */
-    private validateActivityControls(model: IDEF0Model): ValidationError[] {
-        const errors: ValidationError[] = [];
-
-        for (const activity of model.activities) {
-            if (!activity.controls || activity.controls.length === 0) {
-                errors.push({
-                    message: `Activity "${activity.code}" (${activity.label}) must have at least one control`,
-                    severity: 'error'
-                });
-            }
-        }
-
-        return errors;
     }
 
     /**
@@ -91,7 +70,7 @@ export class Validator {
     }
 
     /**
-     * Validate that ICOM codes referenced in inputs exist as outputs
+     * Validate that ICOM codes referenced in inputs, controls, and mechanisms exist as outputs
      */
     private validateICOMReferences(model: IDEF0Model): ValidationError[] {
         const errors: ValidationError[] = [];
@@ -108,15 +87,19 @@ export class Validator {
             }
         }
 
-        // Check that all input codes reference valid outputs
+        // Check that all ICOM codes reference valid outputs
+        const icomTypes = ['inputs', 'controls', 'mechanisms'] as const;
         for (const activity of model.activities) {
-            if (activity.inputs) {
-                for (const input of activity.inputs) {
-                    if (input.code && !outputCodes.has(input.code)) {
-                        errors.push({
-                            message: `Activity "${activity.code}": input "${input.label}" references unknown output code "${input.code}"`,
-                            severity: 'error'
-                        });
+            for (const type of icomTypes) {
+                const items = activity[type];
+                if (items) {
+                    for (const item of items) {
+                        if (item.code && !outputCodes.has(item.code)) {
+                            errors.push({
+                                message: `Activity "${activity.code}": ${type.slice(0, -1)} "${item.label}" references unknown output code "${item.code}"`,
+                                severity: 'error'
+                            });
+                        }
                     }
                 }
             }
@@ -126,18 +109,22 @@ export class Validator {
     }
 
     /**
-     * Warn about output codes that are never used as inputs
+     * Warn about output codes that are never referenced by another activity
      */
     private validateUnusedOutputCodes(model: IDEF0Model): ValidationError[] {
         const errors: ValidationError[] = [];
 
-        // Collect all input codes
-        const inputCodes = new Set<string>();
+        // Collect all codes referenced by inputs, controls, and mechanisms
+        const referencedCodes = new Set<string>();
+        const icomTypes = ['inputs', 'controls', 'mechanisms'] as const;
         for (const activity of model.activities) {
-            if (activity.inputs) {
-                for (const input of activity.inputs) {
-                    if (input.code) {
-                        inputCodes.add(input.code);
+            for (const type of icomTypes) {
+                const items = activity[type];
+                if (items) {
+                    for (const item of items) {
+                        if (item.code) {
+                            referencedCodes.add(item.code);
+                        }
                     }
                 }
             }
@@ -147,9 +134,9 @@ export class Validator {
         for (const activity of model.activities) {
             if (activity.outputs) {
                 for (const output of activity.outputs) {
-                    if (output.code && !inputCodes.has(output.code)) {
+                    if (output.code && !referencedCodes.has(output.code)) {
                         errors.push({
-                            message: `Activity "${activity.code}": output "${output.label}" with code "${output.code}" is never used as an input`,
+                            message: `Activity "${activity.code}": output "${output.label}" with code "${output.code}" is never referenced by another activity`,
                             severity: 'warning'
                         });
                     }

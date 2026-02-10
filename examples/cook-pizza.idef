@@ -1,0 +1,34 @@
+metadata:
+  title: Cook Pizza
+  version: "1.0"
+  description: Basic pizza workflow
+activities:
+  - code: A1
+    label: Take Order
+    controls:
+      - label: Menu
+    outputs:
+      - label: Customer Order
+        code: order
+  - code: A2 
+    label: Cook Pizza
+    controls:
+      - label: Customer Order
+        code: order
+      - label: Recipe
+    outputs:
+      - label: Pizza
+        code: pizza
+    mechanisms:
+      - label: Kitchen
+      - label: Chef
+  - code: A3
+    label: Eat Pizza
+    inputs:
+      - label: Pizza
+        code: pizza
+      - label: Hungry Customer
+    outputs:
+      - label: Satisfied Customer
+      - label: Mess 
+

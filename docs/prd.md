@@ -152,55 +152,41 @@ The following features are explicitly excluded from the initial version:
 5. **Renderer**: Generates SVG representation of IDEF0 diagram
 6. **Export Handler**: Saves diagrams as SVG/PNG files
 
-### YAML Schema (Preliminary)
+### YAML Schema 
 
 ```yaml
 # Example .idef file structure
 metadata:
-  title: "Order Processing System"
-  author: "Business Analyst"
+  title: Order Processing System
+  author: Business Analyst
   version: "1.0"
-
 activities:
-  - id: "A1"
-    label: "Process Order"
-
-  - id: "A2"
-    label: "Validate Payment"
-
-  - id: "A3"
-    label: "Ship Product"
-
-arrows:
-  - type: input
-    from: external
-    to: A1
-    label: "Customer Order"
-
-  - type: control
-    from: external
-    to: A1
-    label: "Business Rules"
-
-  - type: output
-    from: A1
-    to: A2
-    label: "Validated Order"
-
-  - type: output
-    from: A2
-    to: A3
-    label: "Approved Order"
-
-  - type: output
-    from: A3
-    to: external
-    label: "Shipped Product"
-
-  - type: mechanism
-    from: external
-    to: A1
-    label: "Order System"
+  - code: A1
+    label: Process Order
+    inputs: 
+      - label: Customer Order
+    controls:
+      - label: Business Rules
+    outputs:
+      - label: Validated Order
+        code: vo
+    mechanisms:
+      - label: Order System
+  - code: A2
+    label: Validate Payment
+    inputs:
+      - label: Validated Order
+        code: vo
+    outputs:
+      - label: Approved Order
+        code: ao
+  - code: A3
+    label: Ship Product
+    inputs:
+      - label: Approved Order
+        code: ao
+    outputs:
+      - label: Shipped Product
 ```
 
 ### File Structure

@@ -23,23 +23,24 @@ export interface Metadata {
 }
 
 /**
- * An activity/function box in IDEF0
+ * An ICOM arrow (Input, Control, Output, or Mechanism)
  */
-export interface Activity {
-    id: string;
+export interface ICOM {
     label: string;
-    position?: Position;  // Calculated by layout engine
+    code?: string;  // Optional code for cross-referencing between activities
 }
 
 /**
- * An arrow connecting activities or external entities
+ * An activity/function box in IDEF0
  */
-export interface Arrow {
-    type: ArrowType;
-    from: string;  // Activity ID or 'external'
-    to: string;    // Activity ID or 'external'
+export interface Activity {
+    code: string;
     label: string;
-    points?: Position[];  // Calculated by layout engine
+    inputs?: ICOM[];
+    controls?: ICOM[];
+    outputs?: ICOM[];
+    mechanisms?: ICOM[];
+    position?: Position;  // Calculated by layout engine
 }
 
 /**
@@ -56,7 +57,20 @@ export interface Position {
 export interface IDEF0Model {
     metadata?: Metadata;
     activities: Activity[];
-    arrows: Arrow[];
+}
+
+/**
+ * Internal representation of a connection between activities
+ * Generated during layout from ICOM codes
+ */
+export interface Connection {
+    type: ArrowType;
+    from: string;      // Activity code or 'external'
+    to: string;        // Activity code
+    label: string;
+    fromCode?: string; // ICOM code if applicable
+    toCode?: string;   // ICOM code if applicable
+    points?: Position[]; // Calculated by layout engine
 }
 
 /**
@@ -78,11 +92,11 @@ export interface ValidationResult {
 }
 
 /**
- * Layout result with positioned elements
+ * Layout result with positioned elements and resolved connections
  */
 export interface LayoutResult {
     activities: Activity[];
-    arrows: Arrow[];
+    connections: Connection[];
     bounds: {
         width: number;
         height: number;

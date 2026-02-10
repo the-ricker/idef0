@@ -1,7 +1,7 @@
-import { IDEF0Model, Activity, Arrow, Position, LayoutResult, ArrowType } from '../types';
+import { IDEF0Model, Activity, Position, LayoutResult, Connection, ArrowType } from '../types';
 
 /**
- * Layout engine for positioning IDEF0 activities and arrows
+ * Layout engine for positioning IDEF0 activities and calculating connections
  */
 export class LayoutEngine {
     private readonly ACTIVITY_WIDTH = 200;
@@ -12,26 +12,125 @@ export class LayoutEngine {
 
     /**
      * Calculate layout for IDEF0 model
-     * Uses a simple left-to-right layered layout based on arrow dependencies
+     * Uses a simple left-to-right layered layout based on dependencies
      */
     layout(model: IDEF0Model): LayoutResult {
-        // Build dependency graph
+        // Build dependency graph and assign layers
         const layers = this.assignLayers(model);
 
         // Position activities in layers
         const positionedActivities = this.positionActivities(layers);
 
-        // Calculate arrow paths
-        const positionedArrows = this.calculateArrowPaths(model.arrows, positionedActivities);
+        // Resolve ICOM connections
+        const connections = this.resolveConnections(model, positionedActivities);
+
+        // Calculate connection paths
+        const positionedConnections = this.calculateConnectionPaths(connections, positionedActivities);
 
         // Calculate overall bounds
         const bounds = this.calculateBounds(positionedActivities);
 
         return {
             activities: positionedActivities,
-            arrows: positionedArrows,
+            connections: positionedConnections,
             bounds
         };
+    }
+
+    /**
+     * Resolve ICOM connections from the model
+     * Connections are implicit based on matching codes
+     */
+    private resolveConnections(model: IDEF0Model, activities: Activity[]): Connection[] {
+        const connections: Connection[] = [];
+        const activityMap = new Map(activities.map(a => [a.code, a]));
+
+        // Build a map of output codes to their source activities
+        const outputCodeMap = new Map<string, { activity: string; label: string }>();
+        for (const activity of model.activities) {
+            if (activity.outputs) {
+                for (const output of activity.outputs) {
+                    if (output.code) {
+                        outputCodeMap.set(output.code, {
+                            activity: activity.code,
+                            label: output.label
+                        });
+                    }
+                }
+            }
+        }
+
+        for (const activity of model.activities) {
+            // Input connections
+            if (activity.inputs) {
+                for (const input of activity.inputs) {
+                    if (input.code) {
+                        // Internal connection from another activity's output
+                        const source = outputCodeMap.get(input.code);
+                        if (source) {
+                            connections.push({
+                                type: ArrowType.Input,
+                                from: source.activity,
+                                to: activity.code,
+                                label: input.label,
+                                fromCode: input.code,
+                                toCode: input.code
+                            });
+                        }
+                    } else {
+                        // External input
+                        connections.push({
+                            type: ArrowType.Input,
+                            from: 'external',
+                            to: activity.code,
+                            label: input.label
+                        });
+                    }
+                }
+            }
+
+            // Control connections (always external in MVP)
+            if (activity.controls) {
+                for (const control of activity.controls) {
+                    connections.push({
+                        type: ArrowType.Control,
+                        from: 'external',
+                        to: activity.code,
+                        label: control.label
+                    });
+                }
+            }
+
+            // Output connections (to external if not referenced elsewhere)
+            if (activity.outputs) {
+                for (const output of activity.outputs) {
+                    if (!output.code) {
+                        // External output (no code means it goes outside)
+                        connections.push({
+                            type: ArrowType.Output,
+                            from: activity.code,
+                            to: 'external',
+                            label: output.label
+                        });
+                    }
+                    // If output has code, connection is created when referenced as input
+                }
+            }
+
+            // Mechanism connections (always external in MVP)
+            if (activity.mechanisms) {
+                for (const mechanism of activity.mechanisms) {
+                    connections.push({
+                        type: ArrowType.Mechanism,
+                        from: 'external',
+                        to: activity.code,
+                        label: mechanism.label
+                    });
+                }
+            }
+        }
+
+        return connections;
     }
 
     /**
@@ -40,25 +139,36 @@ export class LayoutEngine {
     private assignLayers(model: IDEF0Model): Map<number, Activity[]> {
         const layers = new Map<number, Activity[]>();
         const activityLayers = new Map<string, number>();
-        const activityMap = new Map(model.activities.map(a => [a.id, a]));
 
-        // Start with activities that have no incoming non-external arrows
+        // Build output code map to track dependencies
+        const outputCodeMap = new Map<string, string>();
+        for (const activity of model.activities) {
+            if (activity.outputs) {
+                for (const output of activity.outputs) {
+                    if (output.code) {
+                        outputCodeMap.set(output.code, activity.code);
+                    }
+                }
+            }
+        }
+
+        // Find activities with no incoming dependencies
         const startActivities = model.activities.filter(activity => {
-            const hasIncoming = model.arrows.some(
-                arrow => arrow.to === activity.id && arrow.from !== 'external'
-            );
-            return !hasIncoming;
+            if (!activity.inputs) {
+                return true;
+            }
+            return !activity.inputs.some(input => input.code && outputCodeMap.has(input.code));
         });
 
         // Assign layer 0 to start activities
         if (startActivities.length > 0) {
             layers.set(0, startActivities);
-            startActivities.forEach(a => activityLayers.set(a.id, 0));
+            startActivities.forEach(a => activityLayers.set(a.code, 0));
         }
 
         // Assign subsequent layers using BFS
         let currentLayer = 0;
-        let assigned = new Set(startActivities.map(a => a.id));
+        let assigned = new Set(startActivities.map(a => a.code));
         let hasChanges = true;
 
         while (hasChanges && assigned.size < model.activities.length) {
@@ -66,24 +176,29 @@ export class LayoutEngine {
             const nextLayer = currentLayer + 1;
             const nextActivities: Activity[] = [];
 
-            // Find activities whose inputs are all in previous layers
             for (const activity of model.activities) {
-                if (assigned.has(activity.id)) {
+                if (assigned.has(activity.code)) {
                     continue;
                 }
 
-                const incomingArrows = model.arrows.filter(
-                    arrow => arrow.to === activity.id && arrow.from !== 'external'
-                );
+                // Check if all input dependencies are satisfied
+                let allDependenciesMet = true;
+                if (activity.inputs) {
+                    for (const input of activity.inputs) {
+                        if (input.code) {
+                            const sourceActivity = outputCodeMap.get(input.code);
+                            if (sourceActivity && !assigned.has(sourceActivity)) {
+                                allDependenciesMet = false;
+                                break;
+                            }
+                        }
+                    }
+                }
 
-                const allInputsAssigned = incomingArrows.every(
-                    arrow => assigned.has(arrow.from)
-                );
-
-                if (allInputsAssigned) {
+                if (allDependenciesMet) {
                     nextActivities.push(activity);
-                    activityLayers.set(activity.id, nextLayer);
-                    assigned.add(activity.id);
+                    activityLayers.set(activity.code, nextLayer);
+                    assigned.add(activity.code);
                     hasChanges = true;
                 }
             }
@@ -95,11 +210,10 @@ export class LayoutEngine {
         }
 
         // Assign any remaining activities to the last layer
-        const unassigned = model.activities.filter(a => !assigned.has(a.id));
+        const unassigned = model.activities.filter(a => !assigned.has(a.code));
         if (unassigned.length > 0) {
             const lastLayer = currentLayer + 1;
             layers.set(lastLayer, unassigned);
-            unassigned.forEach(a => activityLayers.set(a.id, lastLayer));
         }
 
         return layers;
@@ -113,10 +227,6 @@ export class LayoutEngine {
 
         for (const [layerIndex, activities] of layers.entries()) {
             const x = this.MARGIN + layerIndex * (this.ACTIVITY_WIDTH + this.HORIZONTAL_SPACING);
-
-            // Center activities vertically in their layer
-            const totalHeight = activities.length * this.ACTIVITY_HEIGHT +
-                               (activities.length - 1) * this.VERTICAL_SPACING;
             let y = this.MARGIN;
 
             for (const activity of activities) {
@@ -132,26 +242,36 @@ export class LayoutEngine {
     }
 
     /**
-     * Calculate arrow paths between activities
+     * Calculate connection paths between activities
      */
-    private calculateArrowPaths(arrows: Arrow[], activities: Activity[]): Arrow[] {
-        const activityMap = new Map(activities.map(a => [a.id, a]));
+    private calculateConnectionPaths(connections: Connection[], activities: Activity[]): Connection[] {
+        const activityMap = new Map(activities.map(a => [a.code, a]));
 
-        return arrows.map(arrow => {
-            const fromActivity = activityMap.get(arrow.from);
-            const toActivity = activityMap.get(arrow.to);
+        return connections.map(connection => {
+            const fromActivity = activityMap.get(connection.from);
+            const toActivity = activityMap.get(connection.to);
 
             const points: Position[] = [];
 
-            if (fromActivity && toActivity) {
-                // Calculate connection points based on arrow type
-                const from = this.getConnectionPoint(fromActivity, arrow.type, 'from');
-                const to = this.getConnectionPoint(toActivity, arrow.type, 'to');
+            if (connection.from === 'external' && toActivity) {
+                // External to activity
+                const to = this.getConnectionPoint(toActivity, connection.type, 'to');
+                const from = this.getExternalPoint(to, connection.type);
+                points.push(from, to);
+            } else if (connection.to === 'external' && fromActivity) {
+                // Activity to external
+                const from = this.getConnectionPoint(fromActivity, connection.type, 'from');
+                const to = this.getExternalPoint(from, connection.type);
+                points.push(from, to);
+            } else if (fromActivity && toActivity) {
+                // Activity to activity
+                const from = this.getConnectionPoint(fromActivity, connection.type, 'from');
+                const to = this.getConnectionPoint(toActivity, connection.type, 'to');
                 points.push(from, to);
             }
 
             return {
-                ...arrow,
+                ...connection,
                 points
             };
         });
@@ -189,8 +309,25 @@ export class LayoutEngine {
             }
         }
 
-        // Default to center
         return { x: centerX, y: centerY };
+    }
+
+    /**
+     * Get external point for connections from/to outside the diagram
+     */
+    private getExternalPoint(activityPoint: Position, arrowType: ArrowType): Position {
+        const offset = 80;
+
+        switch (arrowType) {
+            case ArrowType.Input:
+                return { x: activityPoint.x - offset, y: activityPoint.y };
+            case ArrowType.Control:
+                return { x: activityPoint.x, y: activityPoint.y - offset };
+            case ArrowType.Output:
+                return { x: activityPoint.x + offset, y: activityPoint.y };
+            case ArrowType.Mechanism:
+                return { x: activityPoint.x, y: activityPoint.y + offset };
+        }
     }
 
     /**

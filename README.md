@@ -23,49 +23,46 @@ Create, edit, and visualize IDEF0 (Integration Definition for Function Modeling)
 
 ```yaml
 metadata:
-  title: "Order Processing System"
+  title: Order Processing System
   version: "1.0"
 
 activities:
-  - id: "A1"
-    label: "Process Order"
+  - code: A1
+    label: Receive Order
+    inputs:
+      - label: Customer Order
+    controls:
+      - label: Order Policy
+    outputs:
+      - label: Order Details
+        code: order_details
+    mechanisms:
+      - label: Order Management System
 
-  - id: "A2"
-    label: "Validate Payment"
+  - code: A2
+    label: Validate Payment
+    inputs:
+      - label: Order Details
+        code: order_details
+    controls:
+      - label: Payment Rules
+    outputs:
+      - label: Approved Order
+        code: approved_order
+    mechanisms:
+      - label: Payment Gateway
 
-  - id: "A3"
-    label: "Ship Product"
-
-arrows:
-  - type: input
-    from: external
-    to: A1
-    label: "Customer Order"
-
-  - type: control
-    from: external
-    to: A1
-    label: "Business Rules"
-
-  - type: output
-    from: A1
-    to: A2
-    label: "Validated Order"
-
-  - type: output
-    from: A2
-    to: A3
-    label: "Approved Order"
-
-  - type: output
-    from: A3
-    to: external
-    label: "Shipped Product"
-
-  - type: mechanism
-    from: external
-    to: A1
-    label: "Order System"
+  - code: A3
+    label: Ship Product
+    inputs:
+      - label: Approved Order
+        code: approved_order
+    controls:
+      - label: Shipping Policy
+    outputs:
+      - label: Shipped Product
+    mechanisms:
+      - label: Shipping Carrier
 ```
 
 ## Commands
@@ -82,27 +79,34 @@ See [examples/](examples/) folder for more sample diagrams.
 ### Metadata (Optional)
 ```yaml
 metadata:
-  title: "Diagram Title"
-  author: "Your Name"
+  title: Diagram Title
+  author: Your Name
   version: "1.0"
-  description: "Diagram description"
+  description: Diagram description
 ```
 
 ### Activities (Required)
 ```yaml
 activities:
-  - id: "A1"           # Unique identifier
-    label: "Activity Name"  # Display name
+  - code: A1                    # Unique activity code
+    label: Activity Name         # Display name
+    inputs:                      # Input ICOMs (optional)
+      - label: Input Label
+        code: input_code         # Optional code for referencing
+    controls:                    # Control ICOMs (required)
+      - label: Control Label
+    outputs:                     # Output ICOMs (required)
+      - label: Output Label
+        code: output_code        # Optional code for referencing
+    mechanisms:                  # Mechanism ICOMs (optional)
+      - label: Mechanism Label
 ```
 
-### Arrows (Required)
-```yaml
-arrows:
-  - type: input|control|output|mechanism  # ICOM type
-    from: external|<activity-id>          # Source
-    to: external|<activity-id>            # Target
-    label: "Arrow Label"                  # Display name
-```
+### ICOM Connections
+Connections between activities are implicit via codes:
+- Outputs with a `code` can be referenced by inputs with the same `code`
+- ICOMs without a `code` are external (from/to outside the diagram)
+- Example: `outputs: [{ label: "Data", code: "data" }]` connects to `inputs: [{ label: "Data", code: "data" }]`
 
 ## Configuration
 

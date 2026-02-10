@@ -19,49 +19,74 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
                 this.createSnippet('metadata', 'Diagram metadata',
                     'metadata:\n  title: "${1:Diagram Title}"\n  author: "${2:Author}"\n  version: "${3:1.0}"'),
                 this.createSnippet('activities', 'Activity definitions',
-                    'activities:\n  - id: "${1:A1}"\n    label: "${2:Activity Name}"'),
-                this.createSnippet('arrows', 'Arrow definitions',
-                    'arrows:\n  - type: ${1|input,control,output,mechanism|}\n    from: ${2:external}\n    to: ${3:A1}\n    label: "${4:Arrow Label}"')
+                    'activities:\n  - code: ${1:A1}\n    label: ${2:Activity Name}\n    controls:\n      - label: ${3:Control}\n    outputs:\n      - label: ${4:Output}')
             );
         }
 
         // Activity properties
-        if (linePrefix.includes('activities:') || linePrefix.trim().startsWith('-')) {
+        if (this.isInActivityContext(document, position)) {
             completions.push(
                 this.createSnippet('activity', 'New activity',
-                    '- id: "${1:A1}"\n  label: "${2:Activity Name}"')
+                    '- code: ${1:A1}\n  label: ${2:Activity Name}\n  controls:\n    - label: ${3:Control}\n  outputs:\n    - label: ${4:Output}'),
+                this.createCompletion('code', 'Activity code (e.g., A1, A2)', vscode.CompletionItemKind.Property),
+                this.createCompletion('label', 'Activity label', vscode.CompletionItemKind.Property),
+                this.createCompletion('inputs', 'Input ICOMs', vscode.CompletionItemKind.Property),
+                this.createCompletion('controls', 'Control ICOMs', vscode.CompletionItemKind.Property),
+                this.createCompletion('outputs', 'Output ICOMs', vscode.CompletionItemKind.Property),
+                this.createCompletion('mechanisms', 'Mechanism ICOMs', vscode.CompletionItemKind.Property)
             );
         }
 
-        // Arrow properties
-        if (linePrefix.includes('arrows:') || this.isInArrowContext(document, position)) {
+        // ICOM properties
+        if (this.isInICOMContext(document, position)) {
             completions.push(
-                this.createSnippet('arrow', 'New arrow',
-                    '- type: ${1|input,control,output,mechanism|}\n  from: ${2:external}\n  to: ${3:A1}\n  label: "${4:Arrow Label}"'),
-                this.createCompletion('type', 'Arrow type', vscode.CompletionItemKind.Property),
-                this.createCompletion('from', 'Arrow source', vscode.CompletionItemKind.Property),
-                this.createCompletion('to', 'Arrow target', vscode.CompletionItemKind.Property),
-                this.createCompletion('label', 'Arrow label', vscode.CompletionItemKind.Property)
+                this.createSnippet('icom', 'New ICOM',
+                    '- label: ${1:ICOM Label}${2:\n  code: ${3:code}}'),
+                this.createCompletion('label', 'ICOM label', vscode.CompletionItemKind.Property),
+                this.createCompletion('code', 'ICOM code for referencing', vscode.CompletionItemKind.Property)
             );
         }
 
-        // Arrow type values
-        if (linePrefix.includes('type:')) {
+        // ICOM section starters
+        if (linePrefix.trim().endsWith('inputs:') || linePrefix.includes('inputs:')) {
             completions.push(
-                this.createCompletion('input', 'Input arrow (left side)', vscode.CompletionItemKind.Value),
-                this.createCompletion('control', 'Control arrow (top side)', vscode.CompletionItemKind.Value),
-                this.createCompletion('output', 'Output arrow (right side)', vscode.CompletionItemKind.Value),
-                this.createCompletion('mechanism', 'Mechanism arrow (bottom side)', vscode.CompletionItemKind.Value)
+                this.createSnippet('external-input', 'External input',
+                    '- label: ${1:Input Label}'),
+                this.createSnippet('coded-input', 'Input with code reference',
+                    '- label: ${1:Input Label}\n  code: ${2:code}')
             );
         }
 
-        // Activity ID suggestions for from/to fields
-        if (linePrefix.includes('from:') || linePrefix.includes('to:')) {
-            const activityIds = this.extractActivityIds(document);
+        if (linePrefix.trim().endsWith('outputs:') || linePrefix.includes('outputs:')) {
+            const outputCodes = this.extractOutputCodes(document);
             completions.push(
-                this.createCompletion('external', 'External entity', vscode.CompletionItemKind.Value),
-                ...activityIds.map(id =>
-                    this.createCompletion(id, `Activity ${id}`, vscode.CompletionItemKind.Reference)
+                this.createSnippet('external-output', 'External output',
+                    '- label: ${1:Output Label}'),
+                this.createSnippet('coded-output', 'Output with code',
+                    '- label: ${1:Output Label}\n  code: ${2:code}')
+            );
+        }
+
+        if (linePrefix.trim().endsWith('controls:') || linePrefix.includes('controls:')) {
+            completions.push(
+                this.createSnippet('control', 'Control',
+                    '- label: ${1:Control Label}')
+            );
+        }
+
+        if (linePrefix.trim().endsWith('mechanisms:') || linePrefix.includes('mechanisms:')) {
+            completions.push(
+                this.createSnippet('mechanism', 'Mechanism',
+                    '- label: ${1:Mechanism Label}')
+            );
+        }
+
+        // Output code suggestions for input codes
+        if (this.isInputCodeField(document, position)) {
+            const outputCodes = this.extractOutputCodes(document);
+            completions.push(
+                ...outputCodes.map(({ code, label }) =>
+                    this.createCompletion(code, `Reference to output: ${label}`, vscode.CompletionItemKind.Reference)
                 )
             );
         }
@@ -94,29 +119,84 @@ export class CompletionProvider implements vscode.CompletionItemProvider {
         return linePrefix.trim() === '' || /^[a-z]*$/.test(linePrefix.trim());
     }
 
-    private isInArrowContext(document: vscode.TextDocument, position: vscode.Position): boolean {
+    private isInActivityContext(document: vscode.TextDocument, position: vscode.Position): boolean {
         for (let i = position.line; i >= 0; i--) {
             const line = document.lineAt(i).text;
-            if (line.includes('arrows:')) {
+            if (line.includes('activities:')) {
                 return true;
             }
-            if (line.includes('activities:') || line.includes('metadata:')) {
+            if (line.includes('metadata:')) {
                 return false;
             }
         }
         return false;
     }
 
-    private extractActivityIds(document: vscode.TextDocument): string[] {
-        const ids: string[] = [];
-        const text = document.getText();
-        const regex = /^\s*-?\s*id:\s*["']?([A-Za-z0-9_]+)["']?/gm;
-        let match;
+    private isInICOMContext(document: vscode.TextDocument, position: vscode.Position): boolean {
+        for (let i = position.line; i >= 0; i--) {
+            const line = document.lineAt(i).text;
+            if (line.match(/^\s+(inputs|controls|outputs|mechanisms):/)) {
+                return true;
+            }
+            if (line.match(/^\s+code:/)) {
+                return false;
+            }
+        }
+        return false;
+    }
 
-        while ((match = regex.exec(text)) !== null) {
-            ids.push(match[1]);
+    private isInputCodeField(document: vscode.TextDocument, position: vscode.Position): boolean {
+        const line = document.lineAt(position).text;
+        if (line.includes('code:')) {
+            // Check if we're in an inputs section
+            for (let i = position.line; i >= 0; i--) {
+                const checkLine = document.lineAt(i).text;
+                if (checkLine.includes('inputs:')) {
+                    return true;
+                }
+                if (checkLine.match(/^\s+(controls|outputs|mechanisms):/)) {
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    private extractOutputCodes(document: vscode.TextDocument): Array<{ code: string; label: string }> {
+        const codes: Array<{ code: string; label: string }> = [];
+        const text = document.getText();
+        const lines = text.split('\n');
+
+        let inOutputSection = false;
+        let currentLabel = '';
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+
+            if (line.match(/^\s+outputs:/)) {
+                inOutputSection = true;
+                continue;
+            }
+
+            if (inOutputSection) {
+                if (line.match(/^\s+(inputs|controls|mechanisms):/)) {
+                    inOutputSection = false;
+                    continue;
+                }
+
+                const labelMatch = line.match(/^\s+-?\s*label:\s*(.+)/);
+                if (labelMatch) {
+                    currentLabel = labelMatch[1].trim().replace(/["']/g, '');
+                }
+
+                const codeMatch = line.match(/^\s+code:\s*([A-Za-z0-9_]+)/);
+                if (codeMatch && currentLabel) {
+                    codes.push({ code: codeMatch[1], label: currentLabel });
+                    currentLabel = '';
+                }
+            }
         }
 
-        return ids;
+        return codes;
     }
 }

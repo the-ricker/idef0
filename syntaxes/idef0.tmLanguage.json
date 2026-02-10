@@ -13,7 +13,7 @@
       "include": "#activities"
     },
     {
-      "include": "#arrows"
+      "include": "#icom"
     },
     {
       "include": "source.yaml"
@@ -39,24 +39,32 @@
     "activities": {
       "patterns": [
         {
+          "name": "keyword.control.idef0",
+          "match": "^\\s*(activities):"
+        },
+        {
           "name": "entity.name.tag.idef0",
-          "match": "^\\s*(activities|id|label):"
+          "match": "^\\s+(code|label):"
         },
         {
           "name": "entity.name.class.idef0",
-          "match": "(?<=id:\\s*)[\"']?[A-Za-z0-9_]+[\"']?"
+          "match": "(?<=code:\\s*)[A-Za-z0-9_]+"
         }
       ]
     },
-    "arrows": {
+    "icom": {
       "patterns": [
         {
-          "name": "entity.name.tag.idef0",
-          "match": "^\\s*(arrows|type|from|to):"
+          "name": "keyword.other.idef0",
+          "match": "^\\s+(inputs|controls|outputs|mechanisms):"
         },
         {
-          "name": "keyword.control.idef0",
-          "match": "\\b(input|control|output|mechanism|external)\\b"
+          "name": "entity.name.tag.idef0",
+          "match": "^\\s+(label|code):"
+        },
+        {
+          "name": "string.quoted.idef0",
+          "match": "(?<=code:\\s*)[A-Za-z0-9_]+"
         }
       ]
     }

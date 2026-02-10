@@ -8,7 +8,7 @@ export class Renderer {
      * Render layout result to SVG string
      */
     render(layout: LayoutResult): string {
-        const { activities, arrows, bounds } = layout;
+        const { activities, connections, bounds } = layout;
 
         const svgParts: string[] = [];
 
@@ -22,10 +22,10 @@ export class Renderer {
         // Add styles
         svgParts.push(this.renderStyles());
 
-        // Render arrows first (so they appear behind activities)
-        svgParts.push('<g class="arrows">');
-        for (const arrow of arrows) {
-            svgParts.push(this.renderArrow(arrow, activities));
+        // Render connections first (so they appear behind activities)
+        svgParts.push('<g class="connections">');
+        for (const connection of connections) {
+            svgParts.push(this.renderConnection(connection));
         }
         svgParts.push('</g>');
 
@@ -59,7 +59,12 @@ export class Renderer {
                     text-anchor: middle;
                     dominant-baseline: middle;
                 }
-                .arrow {
+                .activity-code {
+                    font-family: Arial, sans-serif;
+                    font-size: 10px;
+                    fill: #666;
+                }
+                .connection-line {
                     fill: none;
                     stroke: black;
                     stroke-width: 2;
@@ -67,10 +72,11 @@ export class Renderer {
                 .arrow-head {
                     fill: black;
                 }
-                .arrow-label {
+                .connection-label {
                     font-family: Arial, sans-serif;
-                    font-size: 12px;
+                    font-size: 11px;
                     text-anchor: middle;
+                    fill: #333;
                 }
             </style>
         `;
@@ -91,24 +97,23 @@ export class Renderer {
         const centerY = y + height / 2;
 
         return `
-            <g class="activity" data-id="${activity.id}">
+            <g class="activity" data-code="${activity.code}">
                 <rect class="activity-box" x="${x}" y="${y}" width="${width}" height="${height}" rx="5"/>
                 <text class="activity-label" x="${centerX}" y="${centerY}">${this.escapeXml(activity.label)}</text>
-                <text class="activity-id" x="${x + 10}" y="${y + 20}" font-size="10" fill="#666">${activity.id}</text>
+                <text class="activity-code" x="${x + 10}" y="${y + 20}">${activity.code}</text>
             </g>
         `;
     }
 
     /**
-     * Render an arrow
+     * Render a connection
      */
-    private renderArrow(arrow: any, activities: any[]): string {
-        // Handle external connections
-        if (!arrow.points || arrow.points.length < 2) {
-            return this.renderExternalArrow(arrow, activities);
+    private renderConnection(connection: any): string {
+        if (!connection.points || connection.points.length < 2) {
+            return '';
         }
 
-        const [from, to] = arrow.points;
+        const [from, to] = connection.points;
         const midX = (from.x + to.x) / 2;
         const midY = (from.y + to.y) / 2;
 
@@ -116,79 +121,27 @@ export class Renderer {
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
         const arrowHeadSize = 10;
 
+        // Position label based on connection type
+        let labelX = midX;
+        let labelY = midY - 10;
+
+        // Adjust label position for vertical connections
+        if (connection.type === ArrowType.Control || connection.type === ArrowType.Mechanism) {
+            labelX = midX + 40;
+            labelY = midY;
+        }
+
         return `
-            <g class="arrow" data-type="${arrow.type}">
-                <line class="arrow" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}"/>
+            <g class="connection" data-type="${connection.type}">
+                <line class="connection-line"
+                    x1="${from.x}" y1="${from.y}"
+                    x2="${to.x}" y2="${to.y}"
+                    marker-end="url(#arrowhead)"/>
                 <polygon class="arrow-head"
                     points="${to.x},${to.y}
                             ${to.x - arrowHeadSize * Math.cos(angle - Math.PI / 6)},${to.y - arrowHeadSize * Math.sin(angle - Math.PI / 6)}
                             ${to.x - arrowHeadSize * Math.cos(angle + Math.PI / 6)},${to.y - arrowHeadSize * Math.sin(angle + Math.PI / 6)}"/>
-                <text class="arrow-label" x="${midX}" y="${midY - 10}">${this.escapeXml(arrow.label)}</text>
-            </g>
-        `;
-    }
-
-    /**
-     * Render external arrow (from/to external)
-     */
-    private renderExternalArrow(arrow: any, activities: any[]): string {
-        const activity = activities.find(a =>
-            a.id === (arrow.from !== 'external' ? arrow.from : arrow.to)
-        );
-
-        if (!activity || !activity.position) {
-            return '';
-        }
-
-        const { x, y } = activity.position;
-        const width = 200;
-        const height = 100;
-        const isInput = arrow.to !== 'external';
-
-        let x1, y1, x2, y2;
-
-        switch (arrow.type) {
-            case ArrowType.Input:
-                x2 = x;
-                y2 = y + height / 2;
-                x1 = x - 80;
-                y1 = y2;
-                break;
-            case ArrowType.Control:
-                x2 = x + width / 2;
-                y2 = y;
-                x1 = x2;
-                y1 = y - 80;
-                break;
-            case ArrowType.Output:
-                x1 = x + width;
-                y1 = y + height / 2;
-                x2 = x1 + 80;
-                y2 = y1;
-                break;
-            case ArrowType.Mechanism:
-                x2 = x + width / 2;
-                y2 = y + height;
-                x1 = x2;
-                y1 = y2 + 80;
-                break;
-            default:
-                return '';
-        }
-
-        const midX = (x1 + x2) / 2;
-        const midY = (y1 + y2) / 2;
-        const angle = Math.atan2(y2 - y1, x2 - x1);
-        const arrowHeadSize = 10;
-
-        return `
-            <g class="arrow" data-type="${arrow.type}">
-                <line class="arrow" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>
-                <polygon class="arrow-head"
-                    points="${x2},${y2}
-                            ${x2 - arrowHeadSize * Math.cos(angle - Math.PI / 6)},${y2 - arrowHeadSize * Math.sin(angle - Math.PI / 6)}
-                            ${x2 - arrowHeadSize * Math.cos(angle + Math.PI / 6)},${y2 - arrowHeadSize * Math.sin(angle + Math.PI / 6)}"/>
-                <text class="arrow-label" x="${midX}" y="${midY - 10}">${this.escapeXml(arrow.label)}</text>
+                <text class="connection-label" x="${labelX}" y="${labelY}">${this.escapeXml(connection.label)}</text>
             </g>
         `;
     }

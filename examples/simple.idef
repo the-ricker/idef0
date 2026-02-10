@@ -1,28 +1,15 @@
 metadata:
-  title: "Simple Process"
+  title: Simple Process
   version: "1.0"
 
 activities:
-  - id: "A1"
-    label: "Process Data"
-
-arrows:
-  - type: input
-    from: external
-    to: A1
-    label: "Raw Data"
-
-  - type: control
-    from: external
-    to: A1
-    label: "Processing Rules"
-
-  - type: output
-    from: A1
-    to: external
-    label: "Processed Data"
-
-  - type: mechanism
-    from: external
-    to: A1
-    label: "Data Processor"
+  - code: A1
+    label: Process Data
+    inputs:
+      - label: Raw Data
+    controls:
+      - label: Processing Rules
+    outputs:
+      - label: Processed Data
+    mechanisms:
+      - label: Data Processor

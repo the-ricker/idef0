@@ -1,94 +1,57 @@
 metadata:
-  title: "Order Processing System"
-  author: "Business Analyst"
+  title: Order Processing System
+  author: Business Analyst
   version: "1.0"
-  description: "E-commerce order processing workflow"
+  description: E-commerce order processing workflow
 
 activities:
-  - id: "A1"
-    label: "Receive Order"
+  - code: A1
+    label: Receive Order
+    inputs:
+      - label: Customer Order
+    controls:
+      - label: Order Policy
+    outputs:
+      - label: Order Details
+        code: order_details
+    mechanisms:
+      - label: Order Management System
 
-  - id: "A2"
-    label: "Validate Payment"
+  - code: A2
+    label: Validate Payment
+    inputs:
+      - label: Order Details
+        code: order_details
+    controls:
+      - label: Payment Rules
+    outputs:
+      - label: Approved Order
+        code: approved_order
+    mechanisms:
+      - label: Payment Gateway
 
-  - id: "A3"
-    label: "Prepare Shipment"
+  - code: A3
+    label: Prepare Shipment
+    inputs:
+      - label: Approved Order
+        code: approved_order
+    controls:
+      - label: Packaging Standards
+    outputs:
+      - label: Packaged Order
+        code: packaged_order
+    mechanisms:
+      - label: Warehouse Staff
 
-  - id: "A4"
-    label: "Ship Product"
-
-arrows:
-  # Inputs from external sources
-  - type: input
-    from: external
-    to: A1
-    label: "Customer Order"
-
-  # Controls (business rules)
-  - type: control
-    from: external
-    to: A1
-    label: "Order Policy"
-
-  - type: control
-    from: external
-    to: A2
-    label: "Payment Rules"
-
-  - type: control
-    from: external
-    to: A3
-    label: "Packaging Standards"
-
-  - type: control
-    from: external
-    to: A4
-    label: "Shipping Policy"
-
-  # Outputs between activities
-  - type: output
-    from: A1
-    to: A2
-    label: "Order Details"
-
-  - type: output
-    from: A2
-    to: A3
-    label: "Approved Order"
-
-  - type: output
-    from: A3
-    to: A4
-    label: "Packaged Order"
-
-  # Final outputs
-  - type: output
-    from: A4
-    to: external
-    label: "Shipped Product"
-
-  - type: output
-    from: A4
-    to: external
-    label: "Tracking Info"
-
-  # Mechanisms (resources/systems)
-  - type: mechanism
-    from: external
-    to: A1
-    label: "Order Management System"
-
-  - type: mechanism
-    from: external
-    to: A2
-    label: "Payment Gateway"
-
-  - type: mechanism
-    from: external
-    to: A3
-    label: "Warehouse Staff"
-
-  - type: mechanism
-    from: external
-    to: A4
-    label: "Shipping Carrier"
+  - code: A4
+    label: Ship Product
+    inputs:
+      - label: Packaged Order
+        code: packaged_order
+    controls:
+      - label: Shipping Policy
+    outputs:
+      - label: Shipped Product
+      - label: Tracking Info
+    mechanisms:
+      - label: Shipping Carrier

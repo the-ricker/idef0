@@ -1,5 +1,5 @@
 import * as yaml from 'js-yaml';
-import { IDEF0Model, ArrowType } from '../types';
+import { IDEF0Model, Activity, ICOM } from '../types';
 
 /**
  * Parses YAML content into an IDEF0 model
@@ -34,8 +34,7 @@ export class Parser {
     private validateAndTransform(data: any): IDEF0Model {
         const model: IDEF0Model = {
             metadata: data.metadata,
-            activities: [],
-            arrows: []
+            activities: []
         };
 
         // Validate activities
@@ -44,45 +43,62 @@ export class Parser {
         }
 
         model.activities = data.activities.map((activity: any, index: number) => {
-            if (!activity.id || typeof activity.id !== 'string') {
-                throw new Error(`Activity at index ${index} missing valid "id"`);
+            if (!activity.code || typeof activity.code !== 'string') {
+                throw new Error(`Activity at index ${index} missing valid "code"`);
             }
             if (!activity.label || typeof activity.label !== 'string') {
-                throw new Error(`Activity "${activity.id}" missing valid "label"`);
+                throw new Error(`Activity "${activity.code}" missing valid "label"`);
             }
-            return {
-                id: activity.id,
-                label: activity.label
-            };
-        });
 
-        // Validate arrows
-        if (!data.arrows || !Array.isArray(data.arrows)) {
-            throw new Error('Missing or invalid "arrows" array');
-        }
-
-        model.arrows = data.arrows.map((arrow: any, index: number) => {
-            if (!arrow.type || !Object.values(ArrowType).includes(arrow.type)) {
-                throw new Error(`Arrow at index ${index} has invalid "type". Must be one of: input, control, output, mechanism`);
-            }
-            if (!arrow.from || typeof arrow.from !== 'string') {
-                throw new Error(`Arrow at index ${index} missing valid "from"`);
-            }
-            if (!arrow.to || typeof arrow.to !== 'string') {
-                throw new Error(`Arrow at index ${index} missing valid "to"`);
-            }
-            if (!arrow.label || typeof arrow.label !== 'string') {
-                throw new Error(`Arrow at index ${index} missing valid "label"`);
-            }
             return {
-                type: arrow.type as ArrowType,
-                from: arrow.from,
-                to: arrow.to,
-                label: arrow.label
+                code: activity.code,
+                label: activity.label,
+                inputs: this.parseICOMArray(activity.inputs, 'inputs', activity.code),
+                controls: this.parseICOMArray(activity.controls, 'controls', activity.code),
+                outputs: this.parseICOMArray(activity.outputs, 'outputs', activity.code),
+                mechanisms: this.parseICOMArray(activity.mechanisms, 'mechanisms', activity.code)
             };
         });
 
         return model;
+    }
+
+    /**
+     * Parse and validate an ICOM array
+     */
+    private parseICOMArray(
+        data: any,
+        fieldName: string,
+        activityCode: string
+    ): ICOM[] | undefined {
+        if (!data) {
+            return undefined;
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error(`Activity "${activityCode}": "${fieldName}" must be an array`);
+        }
+
+        return data.map((icom: any, index: number) => {
+            if (!icom.label || typeof icom.label !== 'string') {
+                throw new Error(
+                    `Activity "${activityCode}": ${fieldName}[${index}] missing valid "label"`
+                );
+            }
+
+            const result: ICOM = { label: icom.label };
+
+            if (icom.code) {
+                if (typeof icom.code !== 'string') {
+                    throw new Error(
+                        `Activity "${activityCode}": ${fieldName}[${index}] "code" must be a string`
+                    );
+                }
+                result.code = icom.code;
+            }
+
+            return result;
+        });
     }
 
     /**

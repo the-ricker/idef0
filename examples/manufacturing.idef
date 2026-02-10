@@ -1,92 +1,56 @@
 metadata:
-  title: "Widget Manufacturing Process"
+  title: Widget Manufacturing Process
   version: "1.0"
-  description: "Basic manufacturing workflow"
+  description: Basic manufacturing workflow
 
 activities:
-  - id: "A1"
-    label: "Receive Raw Materials"
+  - code: A1
+    label: Receive Raw Materials
+    inputs:
+      - label: Raw Materials
+    controls:
+      - label: Receiving Standards
+    outputs:
+      - label: Verified Materials
+        code: verified_materials
+    mechanisms:
+      - label: Receiving Clerk
 
-  - id: "A2"
-    label: "Manufacture Widget"
+  - code: A2
+    label: Manufacture Widget
+    inputs:
+      - label: Verified Materials
+        code: verified_materials
+    controls:
+      - label: Manufacturing Specs
+    outputs:
+      - label: Manufactured Widget
+        code: manufactured_widget
+    mechanisms:
+      - label: Assembly Line
 
-  - id: "A3"
-    label: "Quality Control"
+  - code: A3
+    label: Quality Control
+    inputs:
+      - label: Manufactured Widget
+        code: manufactured_widget
+    controls:
+      - label: Quality Standards
+    outputs:
+      - label: Approved Widget
+        code: approved_widget
+      - label: Rejected Items
+    mechanisms:
+      - label: QC Inspector
 
-  - id: "A4"
-    label: "Package Product"
-
-arrows:
-  # Inputs
-  - type: input
-    from: external
-    to: A1
-    label: "Raw Materials"
-
-  # Controls
-  - type: control
-    from: external
-    to: A1
-    label: "Receiving Standards"
-
-  - type: control
-    from: external
-    to: A2
-    label: "Manufacturing Specs"
-
-  - type: control
-    from: external
-    to: A3
-    label: "Quality Standards"
-
-  - type: control
-    from: external
-    to: A4
-    label: "Packaging Requirements"
-
-  # Outputs between activities
-  - type: output
-    from: A1
-    to: A2
-    label: "Verified Materials"
-
-  - type: output
-    from: A2
-    to: A3
-    label: "Manufactured Widget"
-
-  - type: output
-    from: A3
-    to: A4
-    label: "Approved Widget"
-
-  - type: output
-    from: A3
-    to: external
-    label: "Rejected Items"
-
-  - type: output
-    from: A4
-    to: external
-    label: "Packaged Product"
-
-  # Mechanisms
-  - type: mechanism
-    from: external
-    to: A1
-    label: "Receiving Clerk"
-
-  - type: mechanism
-    from: external
-    to: A2
-    label: "Assembly Line"
-
-  - type: mechanism
-    from: external
-    to: A3
-    label: "QC Inspector"
-
-  - type: mechanism
-    from: external
-    to: A4
-    label: "Packaging Station"
+  - code: A4
+    label: Package Product
+    inputs:
+      - label: Approved Widget
+        code: approved_widget
+    controls:
+      - label: Packaging Requirements
+    outputs:
+      - label: Packaged Product
+    mechanisms:
+      - label: Packaging Station

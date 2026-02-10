@@ -3,7 +3,7 @@
   "title": "IDEF0 Diagram",
   "description": "IDEF0 diagram model schema",
   "type": "object",
-  "required": ["activities", "arrows"],
+  "required": ["activities"],
   "properties": {
     "metadata": {
       "type": "object",
@@ -33,45 +33,62 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "label"],
+        "required": ["code", "label"],
         "properties": {
-          "id": {
+          "code": {
             "type": "string",
             "pattern": "^[A-Za-z0-9_]+$",
-            "description": "Unique activity identifier (e.g., A1, A2)"
+            "description": "Unique activity code (e.g., A1, A2)"
           },
           "label": {
             "type": "string",
             "description": "Activity display name"
+          },
+          "inputs": {
+            "type": "array",
+            "description": "Input ICOMs",
+            "items": {
+              "$ref": "#/definitions/icom"
+            }
+          },
+          "controls": {
+            "type": "array",
+            "description": "Control ICOMs",
+            "items": {
+              "$ref": "#/definitions/icom"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "description": "Output ICOMs",
+            "items": {
+              "$ref": "#/definitions/icom"
+            }
+          },
+          "mechanisms": {
+            "type": "array",
+            "description": "Mechanism ICOMs",
+            "items": {
+              "$ref": "#/definitions/icom"
+            }
           }
         }
       }
-    },
-    "arrows": {
-      "type": "array",
-      "description": "List of ICOM arrows",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "required": ["type", "from", "to", "label"],
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["input", "control", "output", "mechanism"],
-            "description": "Arrow type (ICOM)"
-          },
-          "from": {
-            "type": "string",
-            "description": "Source activity ID or 'external'"
-          },
-          "to": {
-            "type": "string",
-            "description": "Target activity ID or 'external'"
-          },
-          "label": {
-            "type": "string",
-            "description": "Arrow label"
-          }
+    }
+  },
+  "definitions": {
+    "icom": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "ICOM label"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_]+$",
+          "description": "Optional code for cross-referencing between activities"
         }
       }
     }

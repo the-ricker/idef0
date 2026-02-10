@@ -1,71 +1,231 @@
 import { IDEF0Model, Activity, Position, LayoutResult, Connection, ArrowType } from '../types';
+import { LAYOUT_CONSTANTS as C } from './constants';
+
+interface BoxDimensions {
+    width: number;
+    height: number;
+}
+
+interface Anchor {
+    activity: string;
+    type: ArrowType;
+    label: string;
+    position: Position;
+    index: number;
+}
+
+interface RoutedConnection extends Connection {
+    path: string;
+    labelPosition: Position;
+}
 
 /**
- * Layout engine for positioning IDEF0 activities and calculating connections
+ * IDEF0-compliant layout engine
+ * Implements diagonal stair-step positioning and orthogonal arrow routing
  */
 export class LayoutEngine {
-    private readonly ACTIVITY_WIDTH = 200;
-    private readonly ACTIVITY_HEIGHT = 100;
-    private readonly HORIZONTAL_SPACING = 150;
-    private readonly VERTICAL_SPACING = 150;
-    private readonly MARGIN = 100;
-
     /**
      * Calculate layout for IDEF0 model
-     * Uses a simple left-to-right layered layout based on dependencies
      */
     layout(model: IDEF0Model): LayoutResult {
-        // Build dependency graph and assign layers
-        const layers = this.assignLayers(model);
+        // Calculate box dimensions based on ICOM counts
+        const dimensions = this.calculateBoxDimensions(model);
 
-        // Position activities in layers
-        const positionedActivities = this.positionActivities(layers);
+        // Position activities in diagonal stair-step pattern
+        const positionedActivities = this.positionActivitiesStairStep(model.activities, dimensions);
 
-        // Resolve ICOM connections
-        const connections = this.resolveConnections(model, positionedActivities);
+        // Create anchor points for all ICOMs
+        const anchors = this.createAnchors(positionedActivities, model);
 
-        // Calculate connection paths
-        const positionedConnections = this.calculateConnectionPaths(connections, positionedActivities);
+        // Resolve connections from ICOM codes
+        const connections = this.resolveConnections(model, positionedActivities, anchors);
+
+        // Route connections with orthogonal paths
+        const routedConnections = this.routeConnections(connections, anchors);
 
         // Calculate overall bounds
-        const bounds = this.calculateBounds(positionedActivities);
+        const bounds = this.calculateBounds(positionedActivities, routedConnections);
 
         return {
             activities: positionedActivities,
-            connections: positionedConnections,
+            connections: routedConnections,
             bounds
         };
     }
 
     /**
-     * Resolve ICOM connections from the model
-     * Connections are implicit based on matching codes
+     * Calculate box dimensions based on ICOM counts
      */
-    private resolveConnections(model: IDEF0Model, activities: Activity[]): Connection[] {
-        const connections: Connection[] = [];
-        const activityMap = new Map(activities.map(a => [a.code, a]));
+    private calculateBoxDimensions(model: IDEF0Model): Map<string, BoxDimensions> {
+        const dimensions = new Map<string, BoxDimensions>();
 
-        // Build a map of output codes to their source activities
-        const outputCodeMap = new Map<string, { activity: string; label: string }>();
+        for (const activity of model.activities) {
+            const inputCount = activity.inputs?.length || 0;
+            const controlCount = activity.controls?.length || 0;
+            const outputCount = activity.outputs?.length || 0;
+            const mechanismCount = activity.mechanisms?.length || 0;
+
+            // Width based on max of top/bottom anchors
+            const horizontalAnchors = Math.max(controlCount, mechanismCount);
+            const labelWidth = activity.label.length * C.CHAR_WIDTH + C.LABEL_PADDING;
+            const anchorWidth = horizontalAnchors > 0
+                ? horizontalAnchors * C.ANCHOR_SPACING + C.BASE_MARGIN
+                : 0;
+            const width = Math.max(C.MIN_BOX_WIDTH, labelWidth, anchorWidth);
+
+            // Height based on max of left/right anchors
+            const verticalAnchors = Math.max(inputCount, outputCount);
+            const anchorHeight = verticalAnchors > 0
+                ? verticalAnchors * C.ANCHOR_SPACING + C.BASE_MARGIN
+                : 0;
+            const height = Math.max(C.MIN_BOX_HEIGHT, anchorHeight);
+
+            dimensions.set(activity.code, { width, height });
+        }
+
+        return dimensions;
+    }
+
+    /**
+     * Position activities in diagonal stair-step pattern from top-left to bottom-right
+     */
+    private positionActivitiesStairStep(
+        activities: Activity[],
+        dimensions: Map<string, BoxDimensions>
+    ): Activity[] {
+        const positioned: Activity[] = [];
+        let currentX = C.DIAGRAM_PADDING;
+        let currentY = C.DIAGRAM_PADDING;
+
+        for (const activity of activities) {
+            const dim = dimensions.get(activity.code)!;
+
+            positioned.push({
+                ...activity,
+                position: { x: currentX, y: currentY }
+            });
+
+            // Move diagonally for next box (down and right)
+            currentX += dim.width + C.BASE_MARGIN;
+            currentY += dim.height + C.BASE_MARGIN;
+        }
+
+        return positioned;
+    }
+
+    /**
+     * Create anchor points for all ICOMs on all sides of activities
+     */
+    private createAnchors(
+        activities: Activity[],
+        model: IDEF0Model
+    ): Map<string, Anchor[]> {
+        const anchorMap = new Map<string, Anchor[]>();
+
+        for (const activity of activities) {
+            const pos = activity.position!;
+            const dim = this.getActivityDimensions(activity);
+            const anchors: Anchor[] = [];
+
+            // Left side - Inputs
+            if (activity.inputs) {
+                const count = activity.inputs.length;
+                const baseline = pos.y + dim.height / 2 - (C.ANCHOR_SPACING * (count - 1)) / 2;
+
+                activity.inputs.forEach((input, index) => {
+                    anchors.push({
+                        activity: activity.code,
+                        type: ArrowType.Input,
+                        label: input.label,
+                        position: { x: pos.x, y: baseline + index * C.ANCHOR_SPACING },
+                        index
+                    });
+                });
+            }
+
+            // Top side - Controls
+            if (activity.controls) {
+                const count = activity.controls.length;
+                const baseline = pos.x + dim.width / 2 - (C.ANCHOR_SPACING * (count - 1)) / 2;
+
+                activity.controls.forEach((control, index) => {
+                    anchors.push({
+                        activity: activity.code,
+                        type: ArrowType.Control,
+                        label: control.label,
+                        position: { x: baseline + index * C.ANCHOR_SPACING, y: pos.y },
+                        index
+                    });
+                });
+            }
+
+            // Right side - Outputs
+            if (activity.outputs) {
+                const count = activity.outputs.length;
+                const baseline = pos.y + dim.height / 2 - (C.ANCHOR_SPACING * (count - 1)) / 2;
+
+                activity.outputs.forEach((output, index) => {
+                    anchors.push({
+                        activity: activity.code,
+                        type: ArrowType.Output,
+                        label: output.label,
+                        position: { x: pos.x + dim.width, y: baseline + index * C.ANCHOR_SPACING },
+                        index
+                    });
+                });
+            }
+
+            // Bottom side - Mechanisms
+            if (activity.mechanisms) {
+                const count = activity.mechanisms.length;
+                const baseline = pos.x + dim.width / 2 - (C.ANCHOR_SPACING * (count - 1)) / 2;
+
+                activity.mechanisms.forEach((mechanism, index) => {
+                    anchors.push({
+                        activity: activity.code,
+                        type: ArrowType.Mechanism,
+                        label: mechanism.label,
+                        position: { x: baseline + index * C.ANCHOR_SPACING, y: pos.y + dim.height },
+                        index
+                    });
+                });
+            }
+
+            anchorMap.set(activity.code, anchors);
+        }
+
+        return anchorMap;
+    }
+
+    /**
+     * Resolve connections from ICOM codes
+     */
+    private resolveConnections(
+        model: IDEF0Model,
+        activities: Activity[],
+        anchors: Map<string, Anchor[]>
+    ): Connection[] {
+        const connections: Connection[] = [];
+
+        // Build output code map
+        const outputCodeMap = new Map<string, { activity: string; index: number }>();
         for (const activity of model.activities) {
             if (activity.outputs) {
-                for (const output of activity.outputs) {
+                activity.outputs.forEach((output, index) => {
                     if (output.code) {
-                        outputCodeMap.set(output.code, {
-                            activity: activity.code,
-                            label: output.label
-                        });
+                        outputCodeMap.set(output.code, { activity: activity.code, index });
                     }
-                }
+                });
             }
         }
 
+        // Create connections
         for (const activity of model.activities) {
-            // Input connections
+            // Inputs
             if (activity.inputs) {
-                for (const input of activity.inputs) {
+                activity.inputs.forEach((input, index) => {
                     if (input.code) {
-                        // Internal connection from another activity's output
+                        // Internal connection
                         const source = outputCodeMap.get(input.code);
                         if (source) {
                             connections.push({
@@ -78,7 +238,7 @@ export class LayoutEngine {
                             });
                         }
                     } else {
-                        // External input
+                        // External connection
                         connections.push({
                             type: ArrowType.Input,
                             from: 'external',
@@ -86,26 +246,25 @@ export class LayoutEngine {
                             label: input.label
                         });
                     }
-                }
+                });
             }
 
-            // Control connections (always external in MVP)
+            // Controls (always external in MVP)
             if (activity.controls) {
-                for (const control of activity.controls) {
+                activity.controls.forEach((control) => {
                     connections.push({
                         type: ArrowType.Control,
                         from: 'external',
                         to: activity.code,
                         label: control.label
                     });
-                }
+                });
             }
 
-            // Output connections (to external if not referenced elsewhere)
+            // Outputs without code (external)
             if (activity.outputs) {
-                for (const output of activity.outputs) {
+                activity.outputs.forEach((output) => {
                     if (!output.code) {
-                        // External output (no code means it goes outside)
                         connections.push({
                             type: ArrowType.Output,
                             from: activity.code,
@@ -113,20 +272,19 @@ export class LayoutEngine {
                             label: output.label
                         });
                     }
-                    // If output has code, connection is created when referenced as input
-                }
+                });
             }
 
-            // Mechanism connections (always external in MVP)
+            // Mechanisms (always external in MVP)
             if (activity.mechanisms) {
-                for (const mechanism of activity.mechanisms) {
+                activity.mechanisms.forEach((mechanism) => {
                     connections.push({
                         type: ArrowType.Mechanism,
                         from: 'external',
                         to: activity.code,
                         label: mechanism.label
                     });
-                }
+                });
             }
         }
 
@@ -134,219 +292,245 @@ export class LayoutEngine {
     }
 
     /**
-     * Assign activities to horizontal layers based on dependencies
+     * Route connections with orthogonal paths
      */
-    private assignLayers(model: IDEF0Model): Map<number, Activity[]> {
-        const layers = new Map<number, Activity[]>();
-        const activityLayers = new Map<string, number>();
-
-        // Build output code map to track dependencies
-        const outputCodeMap = new Map<string, string>();
-        for (const activity of model.activities) {
-            if (activity.outputs) {
-                for (const output of activity.outputs) {
-                    if (output.code) {
-                        outputCodeMap.set(output.code, activity.code);
-                    }
-                }
+    private routeConnections(
+        connections: Connection[],
+        anchors: Map<string, Anchor[]>
+    ): RoutedConnection[] {
+        return connections.map(conn => {
+            if (conn.from === 'external') {
+                return this.routeExternalToActivity(conn, anchors);
+            } else if (conn.to === 'external') {
+                return this.routeActivityToExternal(conn, anchors);
+            } else {
+                return this.routeActivityToActivity(conn, anchors);
             }
-        }
-
-        // Find activities with no incoming dependencies
-        const startActivities = model.activities.filter(activity => {
-            if (!activity.inputs) {
-                return true;
-            }
-            return !activity.inputs.some(input => input.code && outputCodeMap.has(input.code));
-        });
-
-        // Assign layer 0 to start activities
-        if (startActivities.length > 0) {
-            layers.set(0, startActivities);
-            startActivities.forEach(a => activityLayers.set(a.code, 0));
-        }
-
-        // Assign subsequent layers using BFS
-        let currentLayer = 0;
-        let assigned = new Set(startActivities.map(a => a.code));
-        let hasChanges = true;
-
-        while (hasChanges && assigned.size < model.activities.length) {
-            hasChanges = false;
-            const nextLayer = currentLayer + 1;
-            const nextActivities: Activity[] = [];
-
-            for (const activity of model.activities) {
-                if (assigned.has(activity.code)) {
-                    continue;
-                }
-
-                // Check if all input dependencies are satisfied
-                let allDependenciesMet = true;
-                if (activity.inputs) {
-                    for (const input of activity.inputs) {
-                        if (input.code) {
-                            const sourceActivity = outputCodeMap.get(input.code);
-                            if (sourceActivity && !assigned.has(sourceActivity)) {
-                                allDependenciesMet = false;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (allDependenciesMet) {
-                    nextActivities.push(activity);
-                    activityLayers.set(activity.code, nextLayer);
-                    assigned.add(activity.code);
-                    hasChanges = true;
-                }
-            }
-
-            if (nextActivities.length > 0) {
-                layers.set(nextLayer, nextActivities);
-                currentLayer = nextLayer;
-            }
-        }
-
-        // Assign any remaining activities to the last layer
-        const unassigned = model.activities.filter(a => !assigned.has(a.code));
-        if (unassigned.length > 0) {
-            const lastLayer = currentLayer + 1;
-            layers.set(lastLayer, unassigned);
-        }
-
-        return layers;
-    }
-
-    /**
-     * Position activities within their assigned layers
-     */
-    private positionActivities(layers: Map<number, Activity[]>): Activity[] {
-        const positioned: Activity[] = [];
-
-        for (const [layerIndex, activities] of layers.entries()) {
-            const x = this.MARGIN + layerIndex * (this.ACTIVITY_WIDTH + this.HORIZONTAL_SPACING);
-            let y = this.MARGIN;
-
-            for (const activity of activities) {
-                positioned.push({
-                    ...activity,
-                    position: { x, y }
-                });
-                y += this.ACTIVITY_HEIGHT + this.VERTICAL_SPACING;
-            }
-        }
-
-        return positioned;
-    }
-
-    /**
-     * Calculate connection paths between activities
-     */
-    private calculateConnectionPaths(connections: Connection[], activities: Activity[]): Connection[] {
-        const activityMap = new Map(activities.map(a => [a.code, a]));
-
-        return connections.map(connection => {
-            const fromActivity = activityMap.get(connection.from);
-            const toActivity = activityMap.get(connection.to);
-
-            const points: Position[] = [];
-
-            if (connection.from === 'external' && toActivity) {
-                // External to activity
-                const to = this.getConnectionPoint(toActivity, connection.type, 'to');
-                const from = this.getExternalPoint(to, connection.type);
-                points.push(from, to);
-            } else if (connection.to === 'external' && fromActivity) {
-                // Activity to external
-                const from = this.getConnectionPoint(fromActivity, connection.type, 'from');
-                const to = this.getExternalPoint(from, connection.type);
-                points.push(from, to);
-            } else if (fromActivity && toActivity) {
-                // Activity to activity
-                const from = this.getConnectionPoint(fromActivity, connection.type, 'from');
-                const to = this.getConnectionPoint(toActivity, connection.type, 'to');
-                points.push(from, to);
-            }
-
-            return {
-                ...connection,
-                points
-            };
         });
     }
 
     /**
-     * Get connection point on activity based on arrow type
+     * Route external connection to activity (dashed line coming in)
      */
-    private getConnectionPoint(
-        activity: Activity,
-        arrowType: ArrowType,
-        direction: 'from' | 'to'
-    ): Position {
-        const pos = activity.position!;
-        const centerX = pos.x + this.ACTIVITY_WIDTH / 2;
-        const centerY = pos.y + this.ACTIVITY_HEIGHT / 2;
+    private routeExternalToActivity(
+        conn: Connection,
+        anchors: Map<string, Anchor[]>
+    ): RoutedConnection {
+        const targetAnchors = anchors.get(conn.to)!;
+        const anchor = targetAnchors.find(a => a.label === conn.label && a.type === conn.type)!;
 
-        if (direction === 'from') {
-            // Outputs go out the right side
-            if (arrowType === ArrowType.Output) {
-                return { x: pos.x + this.ACTIVITY_WIDTH, y: centerY };
-            }
-        } else {
-            // Inputs come in the left side
-            if (arrowType === ArrowType.Input) {
-                return { x: pos.x, y: centerY };
-            }
-            // Controls come in the top
-            if (arrowType === ArrowType.Control) {
-                return { x: centerX, y: pos.y };
-            }
-            // Mechanisms come in the bottom
-            if (arrowType === ArrowType.Mechanism) {
-                return { x: centerX, y: pos.y + this.ACTIVITY_HEIGHT };
-            }
-        }
+        let startX: number;
+        let startY: number;
+        let path: string;
 
-        return { x: centerX, y: centerY };
-    }
-
-    /**
-     * Get external point for connections from/to outside the diagram
-     */
-    private getExternalPoint(activityPoint: Position, arrowType: ArrowType): Position {
-        const offset = 80;
-
-        switch (arrowType) {
+        switch (conn.type) {
             case ArrowType.Input:
-                return { x: activityPoint.x - offset, y: activityPoint.y };
+                // Come in from left
+                startX = anchor.position.x - C.EXTERNAL_ARROW_LENGTH;
+                startY = anchor.position.y;
+                path = `M ${startX} ${startY} L ${anchor.position.x} ${anchor.position.y}`;
+                break;
+
             case ArrowType.Control:
-                return { x: activityPoint.x, y: activityPoint.y - offset };
-            case ArrowType.Output:
-                return { x: activityPoint.x + offset, y: activityPoint.y };
+                // Come in from top
+                startX = anchor.position.x;
+                startY = anchor.position.y - C.EXTERNAL_ARROW_LENGTH;
+                path = `M ${startX} ${startY} L ${anchor.position.x} ${anchor.position.y}`;
+                break;
+
             case ArrowType.Mechanism:
-                return { x: activityPoint.x, y: activityPoint.y + offset };
+                // Come in from bottom
+                startX = anchor.position.x;
+                startY = anchor.position.y + C.EXTERNAL_ARROW_LENGTH;
+                path = `M ${startX} ${startY} L ${anchor.position.x} ${anchor.position.y}`;
+                break;
+
+            default:
+                // Should never happen, but needed for TypeScript
+                startX = anchor.position.x;
+                startY = anchor.position.y;
+                path = '';
         }
+
+        return {
+            ...conn,
+            path,
+            labelPosition: {
+                x: startX + (anchor.position.x - startX) / 2,
+                y: startY + (anchor.position.y - startY) / 2 - C.LABEL_OFFSET_Y
+            }
+        };
     }
 
     /**
-     * Calculate bounding box for the diagram
+     * Route activity to external connection (dashed line going out)
      */
-    private calculateBounds(activities: Activity[]): { width: number; height: number } {
+    private routeActivityToExternal(
+        conn: Connection,
+        anchors: Map<string, Anchor[]>
+    ): RoutedConnection {
+        const sourceAnchors = anchors.get(conn.from)!;
+        const anchor = sourceAnchors.find(a => a.label === conn.label && a.type === ArrowType.Output)!;
+
+        // Output goes right
+        const endX = anchor.position.x + C.EXTERNAL_ARROW_LENGTH;
+        const endY = anchor.position.y;
+        const path = `M ${anchor.position.x} ${anchor.position.y} L ${endX} ${endY}`;
+
+        return {
+            ...conn,
+            path,
+            labelPosition: {
+                x: anchor.position.x + C.EXTERNAL_ARROW_LENGTH / 2,
+                y: anchor.position.y - C.LABEL_OFFSET_Y
+            }
+        };
+    }
+
+    /**
+     * Route activity to activity connection (solid line with orthogonal routing)
+     */
+    private routeActivityToActivity(
+        conn: Connection,
+        anchors: Map<string, Anchor[]>
+    ): RoutedConnection {
+        const sourceAnchors = anchors.get(conn.from)!;
+        const targetAnchors = anchors.get(conn.to)!;
+
+        const sourceAnchor = sourceAnchors.find(
+            a => a.type === ArrowType.Output &&
+            (conn.fromCode ? a.label === conn.label : true)
+        )!;
+
+        const targetAnchor = targetAnchors.find(
+            a => a.type === ArrowType.Input && a.label === conn.label
+        )!;
+
+        const path = this.createOrthogonalPath(sourceAnchor.position, targetAnchor.position);
+
+        return {
+            ...conn,
+            path,
+            labelPosition: this.calculateLabelPosition(sourceAnchor.position, targetAnchor.position)
+        };
+    }
+
+    /**
+     * Create orthogonal path with rounded corners
+     */
+    private createOrthogonalPath(from: Position, to: Position): string {
+        const r = C.CORNER_RADIUS;
+        const c = C.CORNER_CONTROL;
+
+        // Calculate vertical line position (halfway between source and target)
+        const xVertical = from.x + (to.x - from.x) / 2;
+
+        // Build path with rounded corners
+        let path = `M ${from.x} ${from.y}`;
+
+        // Horizontal to near corner
+        path += ` L ${xVertical - r} ${from.y}`;
+
+        // Rounded corner (right-then-down or right-then-up)
+        if (to.y > from.y) {
+            // Turn down
+            path += ` C ${xVertical - c} ${from.y} ${xVertical} ${from.y + c} ${xVertical} ${from.y + r}`;
+        } else {
+            // Turn up
+            path += ` C ${xVertical - c} ${from.y} ${xVertical} ${from.y - c} ${xVertical} ${from.y - r}`;
+        }
+
+        // Vertical segment
+        path += ` L ${xVertical} ${to.y > from.y ? to.y - r : to.y + r}`;
+
+        // Rounded corner (down-then-right or up-then-right)
+        if (to.y > from.y) {
+            // Turn right
+            path += ` C ${xVertical} ${to.y - c} ${xVertical + c} ${to.y} ${xVertical + r} ${to.y}`;
+        } else {
+            // Turn right
+            path += ` C ${xVertical} ${to.y + c} ${xVertical + c} ${to.y} ${xVertical + r} ${to.y}`;
+        }
+
+        // Horizontal to target
+        path += ` L ${to.x} ${to.y}`;
+
+        return path;
+    }
+
+    /**
+     * Calculate label position for connection
+     */
+    private calculateLabelPosition(from: Position, to: Position): Position {
+        const xVertical = from.x + (to.x - from.x) / 2;
+        const yMid = from.y + (to.y - from.y) / 2;
+
+        return {
+            x: xVertical + C.LABEL_OFFSET_X,
+            y: yMid
+        };
+    }
+
+    /**
+     * Get activity dimensions
+     */
+    private getActivityDimensions(activity: Activity): BoxDimensions {
+        const inputCount = activity.inputs?.length || 0;
+        const controlCount = activity.controls?.length || 0;
+        const outputCount = activity.outputs?.length || 0;
+        const mechanismCount = activity.mechanisms?.length || 0;
+
+        const horizontalAnchors = Math.max(controlCount, mechanismCount);
+        const labelWidth = activity.label.length * C.CHAR_WIDTH + C.LABEL_PADDING;
+        const anchorWidth = horizontalAnchors > 0
+            ? horizontalAnchors * C.ANCHOR_SPACING + C.BASE_MARGIN
+            : 0;
+        const width = Math.max(C.MIN_BOX_WIDTH, labelWidth, anchorWidth);
+
+        const verticalAnchors = Math.max(inputCount, outputCount);
+        const anchorHeight = verticalAnchors > 0
+            ? verticalAnchors * C.ANCHOR_SPACING + C.BASE_MARGIN
+            : 0;
+        const height = Math.max(C.MIN_BOX_HEIGHT, anchorHeight);
+
+        return { width, height };
+    }
+
+    /**
+     * Calculate bounding box
+     */
+    private calculateBounds(
+        activities: Activity[],
+        connections: RoutedConnection[]
+    ): { width: number; height: number } {
         let maxX = 0;
         let maxY = 0;
 
+        // Check activity bounds
         for (const activity of activities) {
-            if (activity.position) {
-                maxX = Math.max(maxX, activity.position.x + this.ACTIVITY_WIDTH);
-                maxY = Math.max(maxY, activity.position.y + this.ACTIVITY_HEIGHT);
+            const dim = this.getActivityDimensions(activity);
+            const pos = activity.position!;
+            maxX = Math.max(maxX, pos.x + dim.width);
+            maxY = Math.max(maxY, pos.y + dim.height);
+        }
+
+        // Check external arrow bounds
+        for (const conn of connections) {
+            if (conn.from === 'external' || conn.to === 'external') {
+                // Parse path to find extents
+                const matches = conn.path.matchAll(/([ML])\s*([\d.]+)\s+([\d.]+)/g);
+                for (const match of matches) {
+                    const x = parseFloat(match[2]);
+                    const y = parseFloat(match[3]);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
             }
         }
 
         return {
-            width: maxX + this.MARGIN,
-            height: maxY + this.MARGIN
+            width: maxX + C.DIAGRAM_PADDING,
+            height: maxY + C.DIAGRAM_PADDING
         };
     }
 }

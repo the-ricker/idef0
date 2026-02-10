@@ -1,0 +1,148 @@
+{
+  "name": "idef0-extension",
+  "displayName": "IDEF0 Diagram Extension",
+  "description": "Create, edit, and visualize IDEF0 diagrams with YAML-based models",
+  "version": "0.1.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "idef0",
+    "diagram",
+    "business process",
+    "modeling",
+    "yaml"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "idef0",
+        "aliases": [
+          "IDEF0",
+          "idef0"
+        ],
+        "extensions": [
+          ".idef"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "idef0",
+        "scopeName": "source.idef0",
+        "path": "./syntaxes/idef0.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "idef0.openPreview",
+        "title": "IDEF0: Open Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "idef0.openPreviewToSide",
+        "title": "IDEF0: Open Preview to the Side",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "idef0.exportSVG",
+        "title": "IDEF0: Export as SVG"
+      },
+      {
+        "command": "idef0.exportPNG",
+        "title": "IDEF0: Export as PNG"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "idef0.openPreviewToSide",
+          "when": "editorLangId == idef0",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "idef0.openPreview",
+          "when": "editorLangId == idef0"
+        },
+        {
+          "command": "idef0.openPreviewToSide",
+          "when": "editorLangId == idef0"
+        },
+        {
+          "command": "idef0.exportSVG",
+          "when": "idef0PreviewVisible"
+        },
+        {
+          "command": "idef0.exportPNG",
+          "when": "idef0PreviewVisible"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "IDEF0",
+      "properties": {
+        "idef0.preview.autoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically update preview when document changes"
+        },
+        "idef0.preview.debounceDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay in milliseconds before updating preview after typing"
+        },
+        "idef0.validation.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable IDEF0 validation"
+        },
+        "idef0.export.defaultFormat": {
+          "type": "string",
+          "enum": [
+            "svg",
+            "png"
+          ],
+          "default": "svg",
+          "description": "Default export format"
+        },
+        "idef0.export.pngResolution": {
+          "type": "number",
+          "default": 2,
+          "description": "PNG export resolution multiplier (1 = normal, 2 = retina)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "d3": "^7.8.5",
+    "js-yaml": "^4.1.0"
+  }
+}

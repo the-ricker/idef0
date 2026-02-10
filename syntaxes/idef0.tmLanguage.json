@@ -1,0 +1,64 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "IDEF0",
+  "scopeName": "source.idef0",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#metadata"
+    },
+    {
+      "include": "#activities"
+    },
+    {
+      "include": "#arrows"
+    },
+    {
+      "include": "source.yaml"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.number-sign.idef0",
+          "match": "#.*$"
+        }
+      ]
+    },
+    "metadata": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.idef0",
+          "match": "^\\s*(metadata|title|author|version|description):"
+        }
+      ]
+    },
+    "activities": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.idef0",
+          "match": "^\\s*(activities|id|label):"
+        },
+        {
+          "name": "entity.name.class.idef0",
+          "match": "(?<=id:\\s*)[\"']?[A-Za-z0-9_]+[\"']?"
+        }
+      ]
+    },
+    "arrows": {
+      "patterns": [
+        {
+          "name": "entity.name.tag.idef0",
+          "match": "^\\s*(arrows|type|from|to):"
+        },
+        {
+          "name": "keyword.control.idef0",
+          "match": "\\b(input|control|output|mechanism|external)\\b"
+        }
+      ]
+    }
+  }
+}

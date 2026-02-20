@@ -1,0 +1,105 @@
+Operate Ben's Burgers receives Hungry Customer
+Operate Ben's Burgers produces Satisfied Customer
+Operate Ben's Burgers requires Original Facility
+Operate Ben's Burgers respects Business Plan
+Operate Ben's Burgers respects Short Term Goals
+Operate Ben's Burgers respects Prices Of Food And Supplies
+
+Operate Ben's Burgers is composed of Oversee Business Operations
+Operate Ben's Burgers is composed of Expand The Business
+Operate Ben's Burgers is composed of Manage Local Restaurant
+Operate Ben's Burgers is composed of Provide Supplies
+Operate Ben's Burgers is composed of Serve Customers
+
+Oversee Business Operations produces Approvals And Commentary
+Oversee Business Operations produces Communications To Local Managers
+Oversee Business Operations respects Communications With Top Management
+Oversee Business Operations respects Expansion Plans And New Ideas
+Oversee Business Operations respects Business Plan
+
+Expand The Business respects Suggestions For Expansion
+Expand The Business respects Approvals And Commentary
+Expand The Business produces New Facility
+Expand The Business produces Expansion Plans And New Ideas
+
+Manage Local Restaurant respects Status Of Local Operations
+Manage Local Restaurant respects Communications To Local Managers
+Manage Local Restaurant respects Prices And Invoices
+Manage Local Restaurant respects Short Term Goals
+Manage Local Restaurant produces Local Management Communications
+Manage Local Restaurant produces Communications With Top Management
+Manage Local Restaurant produces Orders And Payments
+Manage Local Restaurant produces Suggestions For Expansion
+
+Manage Local Restaurant is composed of Manage Restaurant Staff
+Manage Local Restaurant is composed of Order Supplies
+Manage Local Restaurant is composed of Increase Local Business
+Manage Local Restaurant is composed of Keep Accounts
+Manage Local Restaurant is composed of Report To Management
+
+Provide Supplies produces Ingredients
+Provide Supplies produces Prices And Invoices
+Provide Supplies respects Prices Of Food And Supplies
+Provide Supplies respects Orders And Payments
+
+Serve Customers respects Local Management Communications
+Serve Customers receives Hungry Customer
+Serve Customers receives Ingredients
+Serve Customers produces Satisfied Customer
+Serve Customers produces Status Of Local Operations
+Serve Customers requires New Facility
+Serve Customers requires Original Facility
+
+Manage Restaurant Staff respects Communications To Local Managers
+Manage Restaurant Staff produces Local Management Communications
+
+Order Supplies respects Short Term Goals
+Order Supplies respects Status Of Local Operations
+Order Supplies respects Available Funds
+Order Supplies produces Orders And Payments
+Order Supplies produces Tracking Records
+Order Supplies requires Local Records Keeping System
+
+Increase Local Business respects Communications To Local Managers
+Increase Local Business respects Status Of Local Operations
+Increase Local Business produces Local Management Communications
+
+Keep Accounts respects Orders
+Keep Accounts respects Status Of Local Operations
+Keep Accounts respects Prices And Invoices
+Keep Accounts requires Local Records Keeping System
+Keep Accounts produces Available Funds
+Keep Accounts produces Orders And Payments
+Keep Accounts produces Status Information
+
+Report To Management respects Communications To Local Managers
+Report To Management receives Status Information
+Report To Management receives Tracking Records
+Report To Management produces Management Communications
+
+Order Supplies is composed of Evaluate Suppliers
+Order Supplies is composed of Select Supplier For Order
+Order Supplies is composed of Generate Order Form
+Order Supplies is composed of Submit Order
+Order Supplies is composed of Track Orders
+
+Evaluate Suppliers respects Short Term Goals
+Evaluate Suppliers produces Approved Supplier List
+
+Select Supplier For Order respects Approved Supplier List
+Select Supplier For Order respects Available Funds
+Select Supplier For Order respects Status Of Local Operations
+Select Supplier For Order produces Selected Supplier
+
+Generate Order Form respects Selected Supplier
+Generate Order Form respects Status Of Local Operations
+Generate Order Form respects Status Of Local Operations
+Generate Order Form produces Completed Order Form
+
+Submit Order respects Selected Supplier
+Submit Order receives Completed Order Form
+Submit Order produces Orders
+
+Track Orders respects Status Of Local Operations
+Track Orders respects Orders
+Track Orders produces Tracking Records

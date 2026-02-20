@@ -1,147 +1,88 @@
-# IDEF0 Diagram Extension
+# IDEF0 Diagram Editor
 
-Create, edit, and visualize IDEF0 (Integration Definition for Function Modeling) diagrams directly in Cursor/VS Code using YAML-based model files.
+A VSCode extension for editing and previewing [IDEF0](https://en.wikipedia.org/wiki/IDEF0) diagrams with live SVG rendering.
+
+IDEF0 is a function modeling methodology for describing manufacturing functions, providing a structured representation of activities, inputs, outputs, controls, and mechanisms.
 
 ## Features
 
-- **YAML-based modeling**: Define IDEF0 diagrams using simple, version-control-friendly YAML syntax
-- **Live preview**: See your diagram update in real-time as you edit
-- **Syntax highlighting**: Color-coded YAML syntax specific to IDEF0 elements
-- **Auto-completion**: IntelliSense suggestions for activities, arrows, and ICOM types
-- **Validation**: Real-time error checking for YAML syntax and IDEF0 rules
-- **Export**: Save diagrams as SVG or PNG files
-- **Automatic layout**: Smart positioning of activities and arrows
+- Syntax highlighting for `.idef0` files
+- Live preview panel (like Markdown preview) with automatic re-rendering on edit
+- Custom split editor with integrated text editing and diagram view
+- Four diagram views: Schematic, Decompose, Focus, and Table of Contents
+- Automatic layout with a constraint solver that minimizes line crossings
 
-## Quick Start
+## The IDEF0 DSL
 
-1. Create a new file with `.idef` extension
-2. Define your IDEF0 diagram in YAML format (see example below)
-3. Open Command Palette (`Cmd+Shift+P` or `Ctrl+Shift+P`)
-4. Run `IDEF0: Open Preview` to see your diagram
+Each line in an `.idef0` file is a statement in the form:
 
-## Example
-
-```yaml
-metadata:
-  title: Order Processing System
-  version: "1.0"
-
-activities:
-  - code: A1
-    label: Receive Order
-    inputs:
-      - label: Customer Order
-    controls:
-      - label: Order Policy
-    outputs:
-      - label: Order Details
-        code: order_details
-    mechanisms:
-      - label: Order Management System
-
-  - code: A2
-    label: Validate Payment
-    inputs:
-      - label: Order Details
-        code: order_details
-    controls:
-      - label: Payment Rules
-    outputs:
-      - label: Approved Order
-        code: approved_order
-    mechanisms:
-      - label: Payment Gateway
-
-  - code: A3
-    label: Ship Product
-    inputs:
-      - label: Approved Order
-        code: approved_order
-    controls:
-      - label: Shipping Policy
-    outputs:
-      - label: Shipped Product
-    mechanisms:
-      - label: Shipping Carrier
+```
+Subject predicate Object
 ```
 
-## Commands
+### Predicates
 
-- `IDEF0: Open Preview` - Open preview in current editor group
-- `IDEF0: Open Preview to the Side` - Open preview in split view
-- `IDEF0: Export as SVG` - Export diagram as SVG file
-- `IDEF0: Export as PNG` - Export diagram as PNG file
+| Predicate | IDEF0 meaning | Arrow side |
+|---|---|---|
+| `receives` | Input | Left |
+| `produces` | Output | Right |
+| `respects` | Control / Guidance | Top |
+| `requires` | Mechanism / Enabler | Bottom |
+| `is composed of` | Sub-function | (hierarchy) |
 
-## YAML Schema
+### Example
 
-See [examples/](examples/) folder for more sample diagrams.
+```idef0
+Cook Pizza receives Ingredients
+Cook Pizza respects Customer Order
+Cook Pizza respects Recipe
+Cook Pizza requires Chef
+Cook Pizza requires Kitchen
+Cook Pizza produces Pizza
 
-### Metadata (Optional)
-```yaml
-metadata:
-  title: Diagram Title
-  author: Your Name
-  version: "1.0"
-  description: Diagram description
+Take Order produces Customer Order
+Take Order respects Menu
+Take Order requires Wait Staff
+
+Eat Pizza receives Pizza
+Eat Pizza receives Hungry Customer
+Eat Pizza produces Satisfied Customer
+Eat Pizza produces Mess
 ```
 
-### Activities (Required)
-```yaml
-activities:
-  - code: A1                    # Unique activity code
-    label: Activity Name         # Display name
-    inputs:                      # Input ICOMs (optional)
-      - label: Input Label
-        code: input_code         # Optional code for referencing
-    controls:                    # Control ICOMs (required)
-      - label: Control Label
-    outputs:                     # Output ICOMs (required)
-      - label: Output Label
-        code: output_code        # Optional code for referencing
-    mechanisms:                  # Mechanism ICOMs (optional)
-      - label: Mechanism Label
+Lines starting with `#` are comments. Blank lines are ignored.
+
+## Diagram Views
+
+| View | Description |
+|---|---|
+| **Schematic** | Shows all leaf-level functions with their data flows |
+| **Decompose** | Shows one level of hierarchy (direct children of a function) |
+| **Focus** | Shows a single function and its immediate interface |
+| **TOC** | Text-based table of contents showing the function hierarchy |
+
+## Usage
+
+1. Open or create a `.idef0` file
+2. Click the preview icon in the editor title bar (or run **IDEF0: Open Preview to Side** from the command palette)
+3. Use the toolbar buttons in the preview to switch between views
+4. Alternatively, right-click a `.idef0` file and choose **Open With... > IDEF0 Editor** for the split editor
+
+## Development
+
+```sh
+npm install
+npm run build    # one-time build
+npm run watch    # rebuild on change
+npm test         # run tests
 ```
 
-### ICOM Connections
-Connections between activities are implicit via codes:
-- Outputs with a `code` can be referenced by inputs with the same `code`
-- ICOMs without a `code` are external (from/to outside the diagram)
-- Example: `outputs: [{ label: "Data", code: "data" }]` connects to `inputs: [{ label: "Data", code: "data" }]`
+Press **F5** in VSCode to launch the Extension Development Host.
 
-## Configuration
+## Credits
 
-Access settings via `Preferences: Open Settings (UI)` and search for "IDEF0":
-
-- `idef0.preview.autoUpdate`: Auto-update preview on document changes (default: true)
-- `idef0.preview.debounceDelay`: Delay before updating preview in ms (default: 300)
-- `idef0.validation.enabled`: Enable IDEF0 validation (default: true)
-- `idef0.export.defaultFormat`: Default export format (default: svg)
-- `idef0.export.pngResolution`: PNG resolution multiplier (default: 2)
-
-## Requirements
-
-- VS Code version 1.85.0 or higher
-- Works in Cursor (Cursor is VS Code-based)
-
-## Known Limitations (MVP)
-
-- Only supports basic IDEF0 features (activities + ICOM arrows)
-- No hierarchical decomposition yet
-- No manual positioning of activities
-- No interactive diagram editing
-
-See [roadmap](docs/prd.md) for planned features.
-
-## Contributing
-
-See [docs/prd.md](docs/prd.md) for the full Product Requirements Document.
+The IDEF0 diagram engine is a TypeScript port of [IDEF0-SVG](https://github.com/jimmyjazz/IDEF0-SVG) by jimmyjazz, originally written in Ruby.
 
 ## License
 
 MIT
-
-## Resources
-
-- [IDEF0 Wikipedia](https://en.wikipedia.org/wiki/IDEF0)
-- [IDEF0 Overview](https://syque.com/quality_tools/tools/Tools19.htm)
-- [IDEF0 Standard](http://www.idef.com/idef0.htm)

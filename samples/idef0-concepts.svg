@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN"
+"http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd" [
+<!ATTLIST svg xmlns:xlink CDATA #FIXED "http://www.w3.org/1999/xlink">
+]>
+<svg xmlns='http://www.w3.org/2000/svg'
+xmlns:xlink='http://www.w3.org/1999/xlink'
+width='334pt' height='220pt'
+viewBox='0.0 0.0 334.0 220.0'
+>
+<style type='text/css'>
+  svg {
+    background-color: white;
+  }
+  text {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 12px;
+  }
+</style>
+<g>
+  <rect x='120' y='80' width='88' height='60' fill='none' stroke='black' />
+<text text-anchor='middle' x='164' y='110'>Function</text>
+
+  <line x1='20' y1='110' x2='120' y2='110' stroke='black' stroke-dasharray='5,5' />
+<polygon fill='black' stroke='black' points='120,110 114,113 114,107 120,110' />
+<text text-anchor='start' x='25' y='105'>Input</text>
+
+<line x1='208' y1='110' x2='314' y2='110' stroke='black' stroke-dasharray='5,5' />
+<polygon fill='black' stroke='black' points='314,110 308,113 308,107 314,110' />
+<text text-anchor='end' x='309' y='105'>Output</text>
+
+<line x1='164' y1='40' x2='164' y2='80' stroke='black' stroke-dasharray='5,5' />
+<polygon fill='black' stroke='black' points='164,80 161,74 167,74 164,80' />
+<text text-anchor='middle' x='164' y='35'>Control</text>
+
+<line x1='164' y1='180' x2='164' y2='140' stroke='black' stroke-dasharray='5,5' />
+<polygon fill='black' stroke='black' points='164,140 161,146 167,146 164,140' />
+<text text-anchor='middle' x='164' y='195'>Mechanism</text>
+
+</g>
+</svg>

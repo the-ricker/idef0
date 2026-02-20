@@ -1,72 +1,22 @@
 {
-  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "IDEF0",
   "scopeName": "source.idef0",
+  "name": "IDEF0",
   "patterns": [
-    {
-      "include": "#comments"
-    },
-    {
-      "include": "#metadata"
-    },
-    {
-      "include": "#activities"
-    },
-    {
-      "include": "#icom"
-    },
-    {
-      "include": "source.yaml"
-    }
+    { "include": "#comment" },
+    { "include": "#statement" }
   ],
   "repository": {
-    "comments": {
-      "patterns": [
-        {
-          "name": "comment.line.number-sign.idef0",
-          "match": "#.*$"
-        }
-      ]
+    "comment": {
+      "match": "#.*$",
+      "name": "comment.line.number-sign.idef0"
     },
-    "metadata": {
-      "patterns": [
-        {
-          "name": "entity.name.tag.idef0",
-          "match": "^\\s*(metadata|title|author|version|description):"
-        }
-      ]
-    },
-    "activities": {
-      "patterns": [
-        {
-          "name": "keyword.control.idef0",
-          "match": "^\\s*(activities):"
-        },
-        {
-          "name": "entity.name.tag.idef0",
-          "match": "^\\s+(code|label):"
-        },
-        {
-          "name": "entity.name.class.idef0",
-          "match": "(?<=code:\\s*)[A-Za-z0-9_]+"
-        }
-      ]
-    },
-    "icom": {
-      "patterns": [
-        {
-          "name": "keyword.other.idef0",
-          "match": "^\\s+(inputs|controls|outputs|mechanisms):"
-        },
-        {
-          "name": "entity.name.tag.idef0",
-          "match": "^\\s+(label|code):"
-        },
-        {
-          "name": "string.quoted.idef0",
-          "match": "(?<=code:\\s*)[A-Za-z0-9_]+"
-        }
-      ]
+    "statement": {
+      "match": "^(.+?)\\s+(receives|produces|respects|requires|is composed of)\\s+(.+)$",
+      "captures": {
+        "1": { "name": "entity.name.function.idef0" },
+        "2": { "name": "keyword.operator.idef0" },
+        "3": { "name": "variable.other.idef0" }
+      }
     }
   }
 }
